@@ -5,10 +5,6 @@ on:
     branches:
       - main
 
-permissions:
-  id-token: write
-  contents: read
-
 jobs:
   build-test-deploy:
     runs-on: ubuntu-latest
@@ -42,15 +38,9 @@ jobs:
           IMAGE_NAME: microservice-app
           IMAGE_TAG: ${{ github.sha }}
         run: |
-          docker build -t $REGISTRY/$IMAGE_NAME:$IMAGE_TAG .
+          docker build -t $REGISTRY/$IMAGE_NAME:$IMAGE_TAG -t $REGISTRY/$IMAGE_NAME:latest .
           docker push $REGISTRY/$IMAGE_NAME:$IMAGE_TAG
-
-      - name: Azure Login using OIDC
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          docker push $REGISTRY/$IMAGE_NAME:latest
 
       - name: Deploy Image to Container App
         env:
@@ -61,13 +51,13 @@ jobs:
           APP_NAME: ${{ secrets.AZURE_APP_NAME }}
           IMAGE_TAG: ${{ github.sha }}
         run: |
+          az config set extension.use_dynamic_install=yes_without_prompt
           az containerapp registry set \
             --name "$APP_NAME" \
             --resource-group "$RESOURCE_GROUP" \
             --server "$ACR_NAME.azurecr.io" \
             --username "$ACR_USER" \
             --password "$ACR_PASS"
-
           az containerapp update \
             --name "$APP_NAME" \
             --resource-group "$RESOURCE_GROUP" \
